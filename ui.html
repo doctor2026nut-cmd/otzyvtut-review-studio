@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OtzyvTut Studio — Автоматический сбор, рерайт и пачки</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card: #1e293b;
+      --border: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 16px; font-size: 14px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+    h1 { font-size: 19px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .badge-llm { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid #3b82f6; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+    
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 15px; margin-bottom: 12px; color: #e2e8f0; display: flex; align-items: center; justify-content: space-between; }
+    
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    select, input[type="text"], input[type="number"] {
+      width: 100%; padding: 10px 12px; background: #070d18; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; margin-bottom: 12px;
+    }
+    
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 12px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: 0.15s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-success { background: var(--accent); color: #fff; }
+    .btn-secondary { background: #334155; color: #fff; }
+    .btn-sm { padding: 6px 12px; width: auto; font-size: 12px; }
+
+    .candidate-item { background: #070d18; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .candidate-header { display: flex; justify-content: space-between; align-items: baseline; }
+    .candidate-title { font-weight: 700; color: #fff; font-size: 14px; }
+    .tag-anomaly { background: rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+    .review-item { background: #070d18; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+    .review-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    .stars { color: #f59e0b; font-weight: bold; }
+    .review-title { font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #fff; }
+    
+    .sql-box { font-family: monospace; font-size: 11px; background: #030712; color: #a5f3fc; border: 1px solid var(--border); border-radius: 6px; padding: 10px; height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>OtzyvTut Studio <span class="badge-llm">🧠 antigravity-3.8-pro (Default)</span></h1>
+      <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">Автопоиск накруток, глубокий сбор негатива, авто-рерайт и пакетная публикация в wp_reviews.</p>
+    </div>
+  </header>
+
+  <!-- 1. НАСТРОЙКИ АВТОПОИСКА -->
+  <div class="card">
+    <h2>🎯 1. Автоматический подбор компаний с накрутками</h2>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+      <div>
+        <label>Ниша сканирования:</label>
+        <select id="niche_select">
+          <option value="all">Все ниши (МФО, курсы, вакансии, база)</option>
+          <option value="mfo">Финансы / Микрозаймы (МФО)</option>
+          <option value="courses">Онлайн-школы и курсы</option>
+          <option value="invest">Инвестиции и криптовалюты</option>
+          <option value="existing_site">Карточки OtzyvTut (где есть негатив)</option>
+        </select>
+      </div>
+      <div>
+        <label>Тональность рерайта:</label>
+        <select id="batch_tone">
+          <option value="negative_only" selected>Только негатив / разоблачение (1★ - 2★)</option>
+          <option value="all">Естественный срез</option>
+          <option value="positive_only">Только позитив (4★ - 5★)</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="autoFind()">🚀 Найти компании с аномалиями</button>
+  </div>
+
+  <!-- 2. НАЙДЕННЫЕ ВАРИАНТЫ И ПАКЕТНАЯ ОБРАБОТКА -->
+  <div class="card" id="candidates_card" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+      <h2>📋 Выявленные компании (<span id="cand_count">0</span>)</h2>
+      <button class="btn btn-success btn-sm" onclick="runBatchSelected()">⚡ Запустить пакетный рерайт выбранных</button>
+    </div>
+    <div id="candidates_list"></div>
+  </div>
+
+  <!-- 3. ДЕТАЛЬНЫЙ АНАЛИЗ ОДНОЙ КОМПАНИИ -->
+  <div class="card" id="details_card" style="display:none;">
+    <h2>🔍 Компания: <span id="cur_company_name" style="color:#38bdf8;"></span></h2>
+    <div id="company_signals" style="margin-bottom:12px;"></div>
+
+    <div style="background:#070d18; padding:12px; border-radius:6px; margin-bottom:14px; border:1px solid var(--border);">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div>
+          <label>ID на OtzyvTut (company_id):</label>
+          <input type="text" id="target_cid" placeholder="Например: 302">
+        </div>
+        <div>
+          <label>Количество отзывов:</label>
+          <input type="number" id="single_count" value="4" min="1" max="15">
+        </div>
+      </div>
+      <button class="btn btn-success" onclick="rewriteSingleCompany()">✨ Спарсить и переписать отзывы</button>
+    </div>
+
+    <h3 style="font-size:13px; margin-bottom:8px; color:var(--text-muted);">Свежие отзывы/жалобы доноров:</h3>
+    <div id="donor_reviews" style="max-height:240px; overflow-y:auto; margin-bottom:14px;"></div>
+  </div>
+
+  <!-- 4. ГОТОВЫЙ РЕЗУЛЬТАТ И ПАКЕТ ДЛЯ ПУБЛИКАЦИИ -->
+  <div class="card" id="result_card" style="display:none;">
+    <h2>🚀 Готовые SEO-отзывы (с разбросом дат и микроразметкой)</h2>
+    <div id="rewritten_reviews_list" style="margin-bottom:12px;"></div>
+
+    <label>Готовый SQL-пакет для вставки в <b>wp_reviews</b>:</label>
+    <div class="sql-box" id="sql_text"></div>
+    <button class="btn btn-primary" style="margin-top:8px;" onclick="copySql()">📋 Скопировать весь SQL-пакет</button>
+  </div>
+</div>
+
+<script>
+let lastCandidates = [];
+
+async function autoFind() {
+  const niche = document.getElementById('niche_select').value;
+  document.getElementById('candidates_card').style.display = 'block';
+  document.getElementById('candidates_list').innerHTML = '<div style="color:var(--text-muted)">Идет сканирование баз на предмет аномалий...</div>';
+
+  const res = await fetch('/api/autofind', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ niche: niche, only_active: true, only_anomalies: true, limit: 20 })
+  });
+  const data = await res.json();
+  lastCandidates = data.candidates || [];
+  document.getElementById('cand_count').innerText = lastCandidates.length;
+
+  let html = '';
+  lastCandidates.forEach((c, idx) => {
+    let tag = c.is_suspicious_perfect ? '<span class="tag-anomaly">Накрутка: 4.8-5.0★</span>' : '<span class="tag-anomaly">Есть живой негатив</span>';
+    html += `
+      <div class="candidate-item">
+        <div class="candidate-header">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" class="cand-cb" value="${idx}" checked>
+            <span class="candidate-title">${c.name}</span>
+          </label>
+          ${tag}
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); display:flex; gap:12px;">
+          <span>Ниша: <b>${c.niche}</b></span>
+          <span>Отзывов: <b>${c.reviews_count}</b></span>
+          <span>Просмотров: <b>${c.views}</b></span>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <button class="btn btn-secondary btn-sm" onclick="selectCompany(${idx})">Исследовать доноров →</button>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('candidates_list').innerHTML = html;
+}
+
+async function selectCompany(idx) {
+  const c = lastCandidates[idx];
+  document.getElementById('details_card').style.display = 'block';
+  document.getElementById('cur_company_name').innerText = c.name;
+  if (c.company_id) document.getElementById('target_cid').value = c.company_id;
+
+  document.getElementById('company_signals').innerHTML = '<div style="color:var(--text-muted)">Опрос 6 внешних площадок (vidhuk, minfin, moshennik, dou, vnutri, otzovik)...</div>';
+  document.getElementById('donor_reviews').innerHTML = '';
+
+  const res = await fetch('/api/analyze_company', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ company_name: c.name, site_url: c.site, company_id: c.company_id })
+  });
+  const data = await res.json();
+  const audit = data.audit || {};
+
+  let sigHtml = '';
+  if (audit.signals && audit.signals.length) {
+    sigHtml = audit.signals.map(s => `<div class="signal signal-danger" style="background:rgba(239,68,68,0.2); padding:6px 10px; border-radius:4px; margin-bottom:4px; color:#fca5a5;">⚡ ${s}</div>`).join('');
+  } else {
+    sigHtml = `<div style="color:#34d399; font-size:12px;">✅ Найдено ${data.total} отзывов у доноров.</div>`;
+  }
+  document.getElementById('company_signals').innerHTML = sigHtml;
+
+  let rHtml = '';
+  (data.reviews || []).slice(0, 15).forEach(r => {
+    rHtml += `
+      <div class="review-item">
+        <div class="review-header">
+          <span><b>${r.author || 'Аноним'}</b> (${r.source})</span>
+          <span class="stars">${'★'.repeat(r.rating || r.rate || 5)}</span>
+        </div>
+        <div style="font-size:12px;">${r.text}</div>
+      </div>
+    `;
+  });
+  document.getElementById('donor_reviews').innerHTML = rHtml;
+  window.scrollTo({top: document.getElementById('details_card').offsetTop - 20, behavior: 'smooth'});
+}
+
+async function rewriteSingleCompany() {
+  const tone = document.getElementById('batch_tone').value;
+  const cid = document.getElementById('target_cid').value.trim();
+
+  document.getElementById('result_card').style.display = 'block';
+  document.getElementById('rewritten_reviews_list').innerHTML = '<div style="color:#38bdf8">🧠 antigravity-3.8-pro выполняет глубокий SEO-рерайт и формирует структуру...</div>';
+
+  const res = await fetch('/api/rewrite', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ tone_filter: tone, company_id: cid })
+  });
+  const data = await res.json();
+  renderResults(data.rewritten || [], data.sql);
+}
+
+async function runBatchSelected() {
+  const cbs = document.querySelectorAll('.cand-cb:checked');
+  const selectedCands = Array.from(cbs).map(cb => lastCandidates[parseInt(cb.value)]);
+  const tone = document.getElementById('batch_tone').value;
+
+  if (!selectedCands.length) return alert('Выберите хотя бы одну компанию галочкой');
+
+  document.getElementById('result_card').style.display = 'block';
+  document.getElementById('rewritten_reviews_list').innerHTML = `<div style="color:#38bdf8">⚡ Идет пакетная обработка ${selectedCands.length} компаний через antigravity-3.8-pro...</div>`;
+
+  const res = await fetch('/api/batch_run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ companies: selectedCands, tone_filter: tone, reviews_per_company: 3 })
+  });
+  const data = await res.json();
+  const rep = data.report || {};
+  renderResults(rep.items || [], rep.combined_sql);
+}
+
+function renderResults(items, sql) {
+  let outHtml = '';
+  items.forEach(r => {
+    outHtml += `
+      <div class="review-item" style="border-color:#3b82f6;">
+        <div class="review-header">
+          <span>👤 <b>${r.author_name}</b> (${r.company_name || 'Компания'}) • <small style="color:var(--text-muted)">${r.date_added}</small></span>
+          <span class="stars">${'★'.repeat(r.rate)}</span>
+        </div>
+        <div class="review-title">📌 ${r.title}</div>
+        <div style="font-size:12px; margin-bottom:6px; line-height:1.4;">${r.text}</div>
+        <div style="font-size:11px; color:#34d399;"><b>+ Плюсы:</b> ${r.pluses || '—'}</div>
+        <div style="font-size:11px; color:#f87171;"><b>- Минусы:</b> ${r.minuses || '—'}</div>
+      </div>
+    `;
+  });
+  document.getElementById('rewritten_reviews_list').innerHTML = outHtml;
+  document.getElementById('sql_text').innerText = sql || '-- Укажите ID компании для генерации SQL.';
+  window.scrollTo({top: document.getElementById('result_card').offsetTop - 20, behavior: 'smooth'});
+}
+
+function copySql() {
+  const text = document.getElementById('sql_text').innerText;
+  navigator.clipboard.writeText(text);
+  alert('SQL-пакет успешно скопирован в буфер обмена!');
+}
+</script>
+</body>
+</html>
